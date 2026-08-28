@@ -62,3 +62,53 @@ body {
   width: 100vw;
   overflow: hidden;
 }
+
+/* Document Typography Styles */
+article p {
+  margin-bottom: 1rem;
+  text-align: justify;
+}
+
+article h1 {
+  font-family: var(--font-serif);
+  font-size: 1.125rem; /* 18px */
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  color: #171717;
+  text-align: center;
+}
+
+article h2 {
+  font-family: var(--font-serif);
+  font-size: 0.875rem; /* 14px */
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  color: #171717;
+  text-align: left;
+}
+
+/* Comment highlights */
+.comment-highlight {
+  background-color: #dbeafe; /* light blue */
+  color: #1e40af; /* dark blue */
+  border-bottom: 2px solid #3b82f6; /* blue bottom border */
+  padding: 0 2px;
+  border-radius: 2px;
+  position: relative;
+  display: inline;
+}
+
+.comment-highlight::after {
+  content: '💬';
+  font-size: 10px;
+  vertical-align: super;
+  margin-left: 2px;
+  display: inline-block;
+  pointer-events: none;
+}

@@ -1,6 +1,6 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 
-export default function EditableBlock({ value, onChange, className, placeholder, ...props }) {
+const EditableBlock = forwardRef(({ value, onChange, className, placeholder, ...props }, ref) => {
   const elementRef = useRef(null);
 
   // Sync DOM value with state value ONLY if the user is not currently focusing/editing it
@@ -9,6 +9,8 @@ export default function EditableBlock({ value, onChange, className, placeholder,
       elementRef.current.innerHTML = value || '';
     }
   }, [value]);
+
+  useImperativeHandle(ref, () => elementRef.current);
 
   const handleInput = () => {
     if (elementRef.current) {
@@ -27,4 +29,6 @@ export default function EditableBlock({ value, onChange, className, placeholder,
       {...props}
     />
   );
-}
+});
+
+export default EditableBlock;

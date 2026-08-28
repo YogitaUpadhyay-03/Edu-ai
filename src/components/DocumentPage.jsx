@@ -1,7 +1,7 @@
 import React from 'react';
 import EditableBlock from './EditableBlock';
 
-export default function DocumentPage({ activeDocument, selectedIssueId, onContentChange }) {
+export default function DocumentPage({ activeDocument, selectedIssueId, onContentChange, editorRef }) {
   if (!activeDocument) return null;
 
   const { content } = activeDocument;
@@ -55,6 +55,7 @@ export default function DocumentPage({ activeDocument, selectedIssueId, onConten
 
       {/* Editable Body HTML */}
       <EditableBlock
+        ref={editorRef}
         value={content.html || ''}
         onChange={(val) => onContentChange('html', val)}
         className="flex-1 w-full text-justify text-[13px] leading-relaxed focus:outline-none min-h-[500px]"

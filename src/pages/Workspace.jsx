@@ -76,7 +76,7 @@ export default function Workspace() {
 
   // Tree and Overlay states
   const [isProjectsExpanded, setIsProjectsExpanded] = useState(true);
-  const [activeDropdown, setActiveDropdown] = useState(null); // 'share', 'three-dot', 'new-contract', 'normal-text'
+  const [activeDropdown, setActiveDropdown] = useState(null); // 'share', 'export', 'new-contract', 'normal-text'
   const [isNewContractModalOpen, setIsNewContractModalOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
@@ -96,16 +96,107 @@ export default function Workspace() {
   const [toastMessage, setToastMessage] = useState('');
   const [toastId, setToastId] = useState(0);
 
+  // Comment Popover state
+  const [activeCommentPopover, setActiveCommentPopover] = useState(null); // null or { commentId, commentText, spanText, x, y }
+
   const saveDebouncedRef = useRef(null);
+  const editorRef = useRef(null);
+  const savedRangeRef = useRef(null);
+
+  // Selection change listener to track ranges inside the editor
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        // Ensure the selection is inside the body editor
+        if (editorRef.current && editorRef.current.contains(range.commonAncestorContainer)) {
+          savedRangeRef.current = range.cloneRange();
+        }
+      }
+    };
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange);
+    };
+  }, []);
 
   // Find currently active document object
   const activeDocument = documents.find(doc => doc.id === activeDocId);
 
-  // Reset review selections when document shifts
+  // Reset review selections and saved range when document shifts
   useEffect(() => {
     setSelectedIssueId(null);
     setAnalysisComplete(false);
+    savedRangeRef.current = null;
   }, [activeDocId]);
+
+  // Restore selection range helper
+  const restoreSelection = () => {
+    if (savedRangeRef.current) {
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(savedRangeRef.current.cloneRange());
+      return true;
+    }
+    return false;
+  };
+
+  // Format action execution helper
+  const handleFormat = (command, value = null) => {
+    // 1. Restore selection
+    restoreSelection();
+
+    // 2. Perform command
+    if (command === 'comment') {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed) {
+        showToast("Select text to add a comment");
+        return;
+      }
+      
+      const range = selection.getRangeAt(0);
+      const commentId = 'comment-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+      const span = document.createElement('span');
+      span.className = 'comment-highlight';
+      span.setAttribute('data-comment-id', commentId);
+      span.setAttribute('data-comment-text', 'Add comment text...');
+      
+      try {
+        const fragment = range.extractContents();
+        span.appendChild(fragment);
+        range.insertNode(span);
+        
+        // Re-select the comment node
+        selection.removeAllRanges();
+        const newRange = document.createRange();
+        newRange.selectNodeContents(span);
+        selection.addRange(newRange);
+        
+        showToast("Comment added");
+      } catch (e) {
+        console.error("Failed to add comment:", e);
+      }
+    } else if (command === 'formatBlock') {
+      document.execCommand('formatBlock', false, value);
+    } else {
+      document.execCommand(command, false, value);
+    }
+
+    // 3. Save selection again after change
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      if (editorRef.current && editorRef.current.contains(range.commonAncestorContainer)) {
+        savedRangeRef.current = range.cloneRange();
+      }
+    }
+
+    // 4. Update the state immediately
+    if (editorRef.current) {
+      handleContentChange('html', editorRef.current.innerHTML);
+    }
+  };
 
   // Synchronous localStorage save helper
   const saveToLocalStorage = (docsList) => {
@@ -122,11 +213,59 @@ export default function Workspace() {
     }, 500);
   };
 
+  // Handle clicking on text containing comments
+  const handleEditorClick = (e) => {
+    const commentSpan = e.target.closest('.comment-highlight');
+    if (commentSpan) {
+      e.preventDefault();
+      e.stopPropagation();
+      const commentId = commentSpan.getAttribute('data-comment-id');
+      const commentText = commentSpan.getAttribute('data-comment-text') || '';
+      
+      setActiveDropdown(null);
+      
+      setActiveCommentPopover({
+        commentId,
+        commentText,
+        spanText: commentSpan.textContent,
+        x: e.clientX,
+        y: e.clientY
+      });
+    } else {
+      setActiveCommentPopover(null);
+    }
+  };
+
+  // Handle right-clicking on comments
+  const handleEditorContextMenu = (e) => {
+    const commentSpan = e.target.closest('.comment-highlight');
+    if (commentSpan) {
+      e.preventDefault();
+      e.stopPropagation();
+      const commentId = commentSpan.getAttribute('data-comment-id');
+      const commentText = commentSpan.getAttribute('data-comment-text') || '';
+      
+      setActiveDropdown(null);
+      setContextMenu(null);
+      
+      setActiveCommentPopover({
+        commentId,
+        commentText,
+        spanText: commentSpan.textContent,
+        x: e.clientX,
+        y: e.clientY
+      });
+    }
+  };
+
   // Global event listeners for clicking outside and keyboard dismissals
   useEffect(() => {
     const handleOutsideClick = (e) => {
       if (!e.target.closest('.dropdown-trigger') && !e.target.closest('.dropdown-content')) {
         setActiveDropdown(null);
+      }
+      if (!e.target.closest('.comment-highlight') && !e.target.closest('.comment-popover-container')) {
+        setActiveCommentPopover(null);
       }
       setContextMenu(null);
     };
@@ -139,6 +278,7 @@ export default function Workspace() {
         setRenameModal(null);
         setDeleteModal(null);
         setActiveDropdown(null);
+        setActiveCommentPopover(null);
       }
     };
 
@@ -436,15 +576,22 @@ export default function Workspace() {
                   onShowToast={showToast}
                   activeDropdown={activeDropdown}
                   onToggleDropdown={setActiveDropdown}
+                  editorRef={editorRef}
+                  onFormat={handleFormat}
                 />
               </div>
 
               {/* Scrollable Document Container */}
-              <div className="flex-1 overflow-y-auto w-full flex flex-col items-center pt-16 pb-24 px-4">
+              <div 
+                className="flex-1 overflow-y-auto w-full flex flex-col items-center pt-16 pb-24 px-4"
+                onClick={handleEditorClick}
+                onContextMenu={handleEditorContextMenu}
+              >
                 <DocumentPage 
                   activeDocument={activeDocument} 
                   selectedIssueId={selectedIssueId} 
                   onContentChange={handleContentChange}
+                  editorRef={editorRef}
                 />
               </div>
 
@@ -524,6 +671,68 @@ export default function Workspace() {
         onClose={() => setDeleteModal(null)}
         onDelete={handleDelete}
       />
+
+      {/* Comment popover overlay */}
+      {activeCommentPopover && (
+        <div 
+          className="fixed bg-[#17191A] border border-[#2C2D31] rounded-lg p-3 shadow-2xl z-50 flex flex-col gap-2 w-[240px] comment-popover-container text-left"
+          style={{
+            top: activeCommentPopover.y + 10,
+            left: Math.min(activeCommentPopover.x, window.innerWidth - 250)
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="text-[10px] uppercase tracking-wider text-[#9A9BA1] font-semibold select-none">Comment</div>
+          <div className="text-xs text-[#F5F5F5] italic border-l-2 border-[#8B5CF6] pl-2 py-0.5 max-h-[60px] overflow-y-auto select-none">
+            "{activeCommentPopover.spanText}"
+          </div>
+          <textarea
+            value={activeCommentPopover.commentText}
+            placeholder="Write a comment note..."
+            onChange={(e) => {
+              const newText = e.target.value;
+              setActiveCommentPopover(prev => ({ ...prev, commentText: newText }));
+              
+              if (editorRef.current) {
+                const span = editorRef.current.querySelector(`span.comment-highlight[data-comment-id="${activeCommentPopover.commentId}"]`);
+                if (span) {
+                  span.setAttribute('data-comment-text', newText);
+                  handleContentChange('html', editorRef.current.innerHTML);
+                }
+              }
+            }}
+            className="w-full bg-[#1e2022] border border-[#2C2D31] rounded p-2 text-xs text-[#F5F5F5] placeholder-[#9A9BA1] focus:outline-none focus:border-purple-500 resize-none h-[60px]"
+          />
+          <div className="flex items-center justify-between gap-2 mt-1 select-none">
+            <button
+              onClick={() => {
+                if (editorRef.current) {
+                  const span = editorRef.current.querySelector(`span.comment-highlight[data-comment-id="${activeCommentPopover.commentId}"]`);
+                  if (span) {
+                    const parent = span.parentNode;
+                    while (span.firstChild) {
+                      parent.insertBefore(span.firstChild, span);
+                    }
+                    parent.removeChild(span);
+                    handleContentChange('html', editorRef.current.innerHTML);
+                    showToast('Comment deleted');
+                  }
+                }
+                setActiveCommentPopover(null);
+              }}
+              className="text-xs text-red-400 hover:text-red-300 font-medium px-2 py-1 rounded hover:bg-red-950/20 transition-colors cursor-pointer"
+            >
+              Delete Comment
+            </button>
+            <button
+              onClick={() => setActiveCommentPopover(null)}
+              className="text-xs text-[#9A9BA1] hover:text-[#F5F5F5] px-2 py-1 rounded hover:bg-[#25282a] transition-colors cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Toast Alert Portal */}
       <Toast 

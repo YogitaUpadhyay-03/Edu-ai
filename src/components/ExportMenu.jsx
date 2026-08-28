@@ -5,8 +5,8 @@ export default function ExportMenu({ onClose, onShowToast }) {
   const options = [
     { label: 'Export as PDF', action: 'PDF export started', icon: FileText },
     { label: 'Export as DOCX (Clean)', action: 'DOCX export started', icon: FileSpreadsheet },
-    { label: 'Export with AI Comments', action: 'AI Comment export started', icon: MessageSquare },
-    { label: 'Export Review Report', action: 'Review Report export started', icon: FileCode },
+    { label: 'Export with AI Comments', action: 'Export with AI comments started', icon: MessageSquare },
+    { label: 'Export Review Report', action: 'Review report export started', icon: FileCode },
   ];
 
   return (

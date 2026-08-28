@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Upload, MoreVertical, Loader2 } from 'lucide-react';
+import { Sparkles, Upload, Loader2 } from 'lucide-react';
 import SharePopover from './SharePopover';
 import ExportMenu from './ExportMenu';
 
@@ -14,7 +14,7 @@ export default function Header({
   onShowToast
 }) {
   const isShareOpen = activeDropdown === 'share';
-  const isExportOpen = activeDropdown === 'three-dot';
+  const isExportOpen = activeDropdown === 'export';
 
   return (
     <header className="flex items-center justify-between px-4 bg-[#111214] border-b border-[#292A2E] h-[42px] select-none w-full relative z-30">
@@ -102,26 +102,17 @@ export default function Header({
         </button>
 
         {/* Share/Export icon */}
-        <button 
-          id="btn-header-export"
-          type="button" 
-          onClick={() => onShowToast('Export sheet loaded')}
-          className="p-1 text-[#9A9BA1] hover:text-white transition-colors duration-150"
-        >
-          <Upload className="w-4 h-4" />
-        </button>
-
-        {/* Three-dot menu container */}
         <div className="relative dropdown-trigger">
           <button 
-            id="btn-header-menu"
+            id="btn-header-export"
             type="button" 
-            onClick={() => onToggleDropdown(isExportOpen ? null : 'three-dot')}
+            title="Export"
+            onClick={() => onToggleDropdown(isExportOpen ? null : 'export')}
             className={`p-1 hover:text-white transition-colors duration-150 rounded ${
               isExportOpen ? 'text-white bg-[#25282a]' : 'text-[#9A9BA1]'
             }`}
           >
-            <MoreVertical className="w-4 h-4" />
+            <Upload className="w-4 h-4" />
           </button>
 
           {isExportOpen && (
